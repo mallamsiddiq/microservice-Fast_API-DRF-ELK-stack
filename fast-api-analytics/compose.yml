@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - kafka
+      - elasticsearch
+      - logstash
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:password@db:5432/urlshortener"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      ELASTICSEARCH_URL: "http://elasticsearch:9200"
+
+  db:
+    image: postgres:14.1-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: urlshortener
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9092:9092"  # Inside port
+      - "9093:9093"  # Outside port
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:9093
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092, OUTSIDE://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+    depends_on:
+      - zookeeper
+
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    ports:
+      - "2181:2181"
+
+  elasticsearch:
+    image: elasticsearch:8.0.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - network.host=0.0.0.0
+      - discovery.type=single-node
+      - xpack.security.enabled=false 
+
+  logstash:
+    image: logstash:8.0.0
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    links:
+      - elasticsearch
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: kibana:8.0.0
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+    links:
+      - elasticsearch
+    depends_on:
+      - elasticsearch
+
+volumes:
+  postgres_data:
+  es_data:

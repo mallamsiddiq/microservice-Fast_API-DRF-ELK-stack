@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+geoip2  # Optional for IP location tracking
+
+
+psycopg2-binary  # For PostgreSQL
+kafka-python     # For Kafka integration
+elasticsearch    # For Elasticsearch integration
+requests         # For HTTP requests

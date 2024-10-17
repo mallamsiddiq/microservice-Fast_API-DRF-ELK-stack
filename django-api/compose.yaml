@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14.1-alpine
+    env_file:
+      - ./.env
+    ports:
+      - '5432:5432'
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: 'admin_user'
+      POSTGRES_PASSWORD: 'admin_pass'
+      POSTGRES_DB: 'users_db'
+    volumes:
+      - users-db:/var/lib/postgresql/data
+    networks:
+      - url-shortner-network
+
+  mongo:
+    image: mongo:4.4
+    container_name: mongo_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - url-shortner-network
+
+  api: &api
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile
+    env_file:
+      - ./.env
+    ports:
+      - '8080:8000'
+    volumes:
+      - ./app:/app
+    restart: always
+    depends_on:
+      - db
+    networks:
+      - url-shortner-network
+
+  # consumer:
+  #   <<: *api
+  #   command: python /app/consumer.py
+  #   entrypoint: ["python", "events/consumers/main.py"]
+  #   environment:
+  #     RABBITMQ_HOST: rabbitmq
+  #   depends_on:
+  #     - api
+  #   restart: always
+  #   ports: []
+  #   volumes:
+  #     - ./app:/app
+  #   networks:
+  #     - url-shortner-network
+
+volumes:
+  users-db:
+  mongo_data:
+
+networks:
+  url-shortner-network:
+    driver: bridge
+    external: true
+    name: url-shortner-network
